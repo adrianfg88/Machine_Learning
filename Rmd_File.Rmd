@@ -1,0 +1,105 @@
+---
+title: "MachineLearning_FinalProject"
+author: "AF"
+date: "10/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [LINK](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset).
+
+
+## Loading Information
+
+Both data frames from testing and training will be loaded and in an exploratory manner analyzed. It can be seen that a lot of the variables are not consistent with their format, for such reason step number one will be to clean the data frames. As well, for the sake of simplicity, all rows which have at least one NA will be deleted. Only some of the "important" variables will be considered for this simulation. The variables in Training are different from those in testing which asks for the need of tidying the data even further.
+```{r reading_data, echo=TRUE, cache=TRUE}
+library(dplyr)
+library(caret)
+#First we set the working space
+getwd()
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "Training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "Testing.csv")
+
+
+#Load Data
+training<-read.csv("./Training.csv", stringsAsFactors = F )
+testing<- read.csv("./Testing.csv", stringsAsFactors = F)
+
+#Decrease amount of Variables
+training<-select(training,c(X:user_name,num_window :total_accel_belt,gyros_belt_x:total_accel_arm,gyros_arm_x:magnet_arm_z,classe))
+testing<-select(testing,names(training[,-30]))
+
+#Impute the NA values in order to have more input rather than deleting NAs (gets the averages for each columns and replaces it in NAs for columns)
+train_impute<-preProcess(training[,-30],method = "knnImpute")
+training[,-30]<-predict(train_impute,newdata = training[,-30])
+
+#Set variables to a proper class.
+testing$user_name<-as.factor(testing$user_name)
+training$user_name<-as.factor(training$user_name)
+
+training$classe<-as.factor(training$classe)
+
+#Now we split in to a test set and a training set
+partition<-createDataPartition(y=training$classe,p=.7,list = F)
+
+tr_training<-training[partition,]
+tst_training<-training[-partition,]
+```
+
+## Fitting models
+
+Next step is to look at a wide amount of models and how they perform by separate.
+
+```{r echo=F,cache=T}
+library(caret)
+
+print("First we fit the random forrest model")
+randfor_model<-train(classe~.,data=tr_training ,method="rf", prox=T)
+print("We end up with an accuracy of")
+randfor_accuray<-mean((predict(randfor_model, newdata =tst_training)==tst_training$classe)*1)
+randfor_accuray
+table(predict(randfor_model, newdata =tst_training),tst_training$classe)
+
+
+print("First we fit the Tree Bag")
+TreeBag_model<-train(classe~.,data=tr_training ,method="treebag")
+print("We end up with an accuracy of")
+TreeBag_accuray<-mean((predict(TreeBag_model , newdata=tst_training)==tst_training$classe)*1)
+TreeBag_accuray
+table(predict(TreeBag_model , newdata=tst_training),tst_training$classe)
+
+print("First we fit the General Boosting")
+GBM_model<-train(classe~.,data=tr_training ,method="gbm", verbose=F)
+print("We end up with an accuracy of")
+Boosting_accuray<-mean((predict(GBM_model , newdata =tst_training)==tst_training$classe)*1)
+Boosting_accuray
+table(predict(GBM_model , newdata =tst_training),tst_training$classe)
+
+print("First we fit the LDA")
+LDA_model<-train(classe~.,data=tr_training ,method="lda")
+print("We end up with an accuracy of")
+LDA_accuray<-mean((predict(LDA_model , newdata =tst_training)==tst_training$classe)*1)
+LDA_accuray
+table(predict(LDA_model , newdata =tst_training),tst_training$classe)
+
+```
+
+Considering that most of the models performed very good in our sub-training test set we will use the random forest model which had over 99% accuracy to predict the classe of our testing set.The limit of the scope of the model is due to the lack of data and the reduction of the variables.
+
+## Conclusions
+The outcome of the test set regarding which classe is the following
+```{r echo=F,cache=T}
+predict(randfor_model,newdata = testing)
+
+```
+
+
+
+
+
+
